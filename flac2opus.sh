@@ -14,18 +14,20 @@ usage="Usage:
     $0 [options] <FLAC_DIR> <LOSSY_DIR>
 
 Options:
-    -h          Print this help page.
-    -b <kbit/s> Set which bitrate to encode to.
-    -f          Rename cover images to folder.{png,jpg} (these are recognized as album art on Android)
-    -j <jobs>   Run up to <jobs> encoder processes in parallel."
+    -h            Print this help page.
+    -b <kbit/s>   Set which bitrate to encode to.
+    -f            Rename cover images to folder.{png,jpg} (these are recognized as album art on Android)
+    -j <jobs>     Run up to <jobs> encoder processes in parallel.
+    -t [mp3|opus] Lossy output type. Default 'opus'"
 
+LOSSY_TYPE=opus
 COVER_REGEX='.*/\(cover\|folder\)\.\(jpg\|png\|gif\)$'
 OPTIND=1
 JOBS=$(nproc --all 2>/dev/null || echo 1)
 export FOLDER_RENAME=0
-export BITRATE=96
+export BITRATE=0
 
-while getopts "hb:j:fs:" opt; do
+while getopts "hb:j:fs:t:" opt; do
 	case "$opt" in
 	h)
 		printf "%s\n\n%s\n" "$credits" "$usage"
@@ -40,6 +42,9 @@ while getopts "hb:j:fs:" opt; do
 	f)
 		FOLDER_RENAME=1
 		;;
+	t)
+		LOSSY_TYPE="$OPTARG"
+		;;
 	*) ;;
 
 	esac
@@ -48,6 +53,18 @@ shift $((OPTIND - 1))
 
 export FLAC_DIR="$1"
 export LOSSY_DIR="$2"
+export LOSSY_TYPE
+
+if [ "$BITRATE" = "0" ]; then
+	case "$LOSSY_TYPE" in
+		opus)
+			BITRATE=96
+			;;
+		mp3)
+			BITRATE=128
+			;;
+	esac
+fi
 
 ensure_dir() {
 	if [ ! -d "$1" ]; then
@@ -72,9 +89,17 @@ XARGS() {
 # Encode a flac file at path relative to $FLAC_DIR.
 encode() {
 	FLAC="$FLAC_DIR/$1"
-	OPUS="$LOSSY_DIR/${1%.*}.opus"
-	if [ ! -f "$OPUS" ] || [ "$(stat -c '%Y' "$FLAC")" != "$(stat -c '%Y' "$OPUS")" ]; then
-		opusenc --bitrate "$BITRATE" --quiet "$FLAC" "$OPUS" && touch -r "$FLAC" "$OPUS"
+	LOSSY="$LOSSY_DIR/${1%.*}.$LOSSY_TYPE"
+	if [ ! -f "$LOSSY" ] || [ "$(stat -c '%Y' "$FLAC")" != "$(stat -c '%Y' "$LOSSY")" ]; then
+		case "$LOSSY_TYPE" in
+			mp3)
+				ffmpeg -hide_banner -loglevel error -i "$FLAC" -ab "${BITRATE}k" -map_metadata 0 -id3v2_version 3 "$LOSSY"
+				;;
+			opus)
+				opusenc --bitrate "$BITRATE" --quiet "$FLAC" "$LOSSY"
+				;;
+		esac
+		touch -r "$FLAC" "$LOSSY"
 	fi
 }
 export -f encode
@@ -103,6 +128,6 @@ find "$FLAC_DIR" -type f -iregex "$COVER_REGEX" -printf "%P\0" |
 	XARGS -n 2 cp --preserve -u
 
 # Remove encodes if the original has been removed
-comm -23 <(find "$LOSSY_DIR" -type f -iname '*.opus' -printf "%P\n" | sort) \
-	<(find "$FLAC_DIR" -type f -iname '*.flac' -printf "%P\n" | sed 's/flac$/opus/' | sort) |
+comm -23 <(find "$LOSSY_DIR" -type f -iname '*.'"$LOSSY_TYPE" -printf "%P\n" | sort) \
+	<(find "$FLAC_DIR" -type f -iname '*.flac' -printf "%P\n" | sed 's/flac$/'$LOSSY_TYPE/ | sort) |
 	XARGS -d '\n' -I{} rm "$LOSSY_DIR/{}"
