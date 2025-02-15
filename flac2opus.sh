@@ -20,8 +20,24 @@ Options:
     -j <jobs>     Run up to <jobs> encoder processes in parallel.
     -t [mp3|opus] Lossy output type. Default 'opus'"
 
+if ! command -v opusenc 2>/dev/null; then
+	>&2 echo "Please install opusenc"
+	exit 1
+fi
+
+if ! command -v opusenc 2>/dev/null; then
+	>&2 echo "Please install ffmpeg"
+	exit 1
+fi
+
 LOSSY_TYPE=opus
+
+# Regex to match cover iamges
 COVER_REGEX='.*/\(cover\|folder\)\.\(jpg\|png\|gif\)$'
+
+# Regex to match lossy files mixed in with FLAC library because we live in an imperfect world :-/
+LOSSY_REGEX='.*\.\(opus\|mp3\|m4a\)$'
+
 OPTIND=1
 JOBS=$(nproc --all 2>/dev/null || echo 1)
 export FOLDER_RENAME=0
@@ -93,7 +109,7 @@ encode() {
 	if [ ! -f "$LOSSY" ] || [ "$(stat -c '%Y' "$FLAC")" != "$(stat -c '%Y' "$LOSSY")" ]; then
 		case "$LOSSY_TYPE" in
 			mp3)
-				ffmpeg -hide_banner -loglevel error -i "$FLAC" -ab "${BITRATE}k" -map_metadata 0 -id3v2_version 3 "$LOSSY"
+				ffmpeg -y -hide_banner -loglevel error -i "$FLAC" -ab "${BITRATE}k" -map_metadata 0 -id3v2_version 3 "$LOSSY"
 				;;
 			opus)
 				opusenc --bitrate "$BITRATE" --quiet "$FLAC" "$LOSSY"
@@ -116,6 +132,13 @@ folder_rename() {
 }
 export -f folder_rename
 
+copy_lossy() {
+	IN="$FLAC_DIR/$1"
+	OUT="$LOSSY_DIR/$1"
+	printf "%s\0%s\0" "$IN" "$OUT"
+}
+export -f copy_lossy
+
 # Create target folders.
 find "$FLAC_DIR" -type d -printf "$LOSSY_DIR/%P\0" | XARGS mkdir -p
 
@@ -125,6 +148,11 @@ find "$FLAC_DIR" -type f -iname '*.flac' -printf "%P\0" | XARGS -I{} -n 1 bash -
 # Copy covers
 find "$FLAC_DIR" -type f -iregex "$COVER_REGEX" -printf "%P\0" |
 	XARGS -I{} -n 1 bash -c 'folder_rename "$@"' _ {} |
+	XARGS -n 2 cp --preserve -u
+
+# Copy lossy files
+find "$FLAC_DIR" -type f -iregex "$LOSSY_REGEX" -printf "%P\0" |
+	XARGS -I{} -n 1 bash -c 'copy_lossy "$@"' _ {} |
 	XARGS -n 2 cp --preserve -u
 
 # Remove encodes if the original has been removed
