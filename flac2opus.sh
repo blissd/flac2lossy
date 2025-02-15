@@ -1,4 +1,10 @@
 #!/bin/bash
+#
+# SPDX-FileCopyrightText: © 2017 Simon Persson <simon@faskpost.me>
+# SPDX-FileCopyrightText: © 2024—2025 David Bliss
+#
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 credits="flac2opus.sh 0.1
@@ -84,14 +90,14 @@ fi
 
 ensure_dir() {
 	if [ ! -d "$1" ]; then
-		printf "Directory \"%s\" does not exist.\n\n%s\n" "$1" "$usage"
+		>&2 printf "Directory \"%s\" does not exist.\n\n%s\n" "$1" "$usage"
 		exit 1
 	fi
 }
 
 # Validate input
 if [ "$#" -lt 2 ]; then
-	printf "%s\n\n%s\n" "$credits" "$usage"
+	>&2 printf "%s\n\n%s\n" "$credits" "$usage"
 	exit 1
 fi
 ensure_dir "$FLAC_DIR"
