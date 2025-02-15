@@ -20,12 +20,12 @@ Options:
     -j <jobs>     Run up to <jobs> encoder processes in parallel.
     -t [mp3|opus] Lossy output type. Default 'opus'"
 
-if ! command -v opusenc 2>/dev/null; then
+if ! command -v opusenc >/dev/null; then
 	>&2 echo "Please install opusenc"
 	exit 1
 fi
 
-if ! command -v opusenc 2>/dev/null; then
+if ! command -v ffmpeg >/dev/null; then
 	>&2 echo "Please install ffmpeg"
 	exit 1
 fi
