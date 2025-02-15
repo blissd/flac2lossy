@@ -16,7 +16,10 @@ name matches {cover,folder}.{jpg,png}.
 
 ## Usage
 
+Help:
+
 ```shell
+flac2lossy.sh
 Usage:
     ./flac2lossy.sh [options] <FLAC_DIR> <LOSSY_DIR>
 
@@ -28,6 +31,22 @@ Options:
     -t [opus|mp3] Lossy output type. Default 'opus'.
 ```
 
+Convert FLAC music library to Opus:
+
+```shell
+flac2lossy.sh -t opus ~/Music ~/Music_OPUS
+```
+
+Convert FLAC music library to MP3:
+
+```shell
+flac2lossy.sh -t opus ~/Music ~/Music_OPUS
+```
+
 ## Dependencies
 
-Flac, opus-tools, bash.
+Setup dependencies on Fedora:
+
+```shell
+dnf install ffmpeg opusenc
+```
